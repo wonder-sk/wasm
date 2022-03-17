@@ -1,0 +1,321 @@
+<!doctypehtml><html lang=en-us>
+    <head>
+        <meta charset=utf-8><meta content="text/html; charset=utf-8"http-equiv=Content-Type>
+        <title>QGIS-WASM</title>
+
+<style>
+body{font-family:arial;/*margin:0;padding:none*/}
+.emscripten{padding-right:0;margin-left:auto;margin-right:auto;display:block}
+div.emscripten{text-align:center}
+div.emscripten_border{border:1px solid #000}
+canvas.emscripten{border:0 none;background-color:#000}
+#emscripten_logo{display:inline-block;margin:0}
+.spinner{height:30px;width:30px;margin:0;margin-top:20px;margin-left:20px;display:inline-block;vertical-align:top;-webkit-animation:rotation .8s linear infinite;-moz-animation:rotation .8s linear infinite;-o-animation:rotation .8s linear infinite;animation:rotation .8s linear infinite;border-left:5px solid #ebebeb;border-right:5px solid #ebebeb;border-bottom:5px solid #ebebeb;border-top:5px solid #787878;border-radius:100%;background-color:#bdd72e}@-webkit-keyframes rotation{from{-webkit-transform:rotate(0)}to{-webkit-transform:rotate(360deg)}}@-moz-keyframes rotation{from{-moz-transform:rotate(0)}to{-moz-transform:rotate(360deg)}}@-o-keyframes rotation{from{-o-transform:rotate(0)}to{-o-transform:rotate(360deg)}}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+#status{display:inline-block;vertical-align:top;margin-top:30px;margin-left:20px;font-weight:700;color:#787878}
+#progress{height:20px;width:300px}
+#controls{display:inline-block;vertical-align:top;margin-top:30px;margin-right:20px}
+
+#output{/*width:100%;height:200px;*/
+    margin:0 auto;margin-top:10px;border-left:0;border-right:0px;padding-left:0;padding-right:0;display:block;background-color:#000;color:#fff;font-family:'Lucida Console',Monaco,monospace;outline:0}
+</style>
+
+</head>
+
+<body>
+
+    <div align="center">
+        <div><img src="/qgis-logo.png" /></div>
+        <div class=spinner id=spinner></div>
+        <div class=emscripten id=status>Downloading...</div>
+        <div class=emscripten><progress hidden id=progress max=100 value=0></progress></div>
+        <div id=qgisstatus style="font-weight:700;color:#787878;padding-bottom: 10px;"></div>
+    </div>
+    <div align="center" style="font-weight:700;color:#787878;padding-bottom: 10px;">
+        Demo projects: &nbsp;
+        <a href="?project=village">village</a> &nbsp;
+        <a href="?project=world-map">world-map</a> &nbsp;
+        <a href="?project=trencin">trencin</a> &nbsp;
+        <a href="?project=testdata">testdata</a> &nbsp;
+        <a href="?project=hackfests">hackfests</a> (broken)
+    </div>
+        
+    <div>
+        <canvas class=emscripten id=canvas oncontextmenu=event.preventDefault() tabindex=-1 width=512 height=512></canvas>
+    </div>
+
+    <div align="center" style="padding-top: 10px;">
+        <button id=zoomin>zoom in</button> <button id=zoomout>zoom out</button>
+        <button id=panleft>left</button> <button id=panright>right</button>
+        <button id=panup>up</button> <button id=pandown>down</button>
+    </div>
+
+<script>
+var statusElement=document.getElementById("status"),
+    progressElement=document.getElementById("progress"),
+    spinnerElement=document.getElementById("spinner"),
+Module={
+  preRun:[],
+  postRun:[],
+  print: function(){
+    var e=document.getElementById("output");
+    return e&&(e.value=""),function(t){
+        arguments.length>1&&(t=Array.prototype.slice.call(arguments).join(" ")),console.log(t),e&&(e.value+=t+"\n",e.scrollTop=e.scrollHeight)}
+  }(),
+  canvas: function(){
+    var e=document.getElementById("canvas");
+    return e.addEventListener("webglcontextlost",(function(e){alert("WebGL context lost. You will need to reload the page."),e.preventDefault()}),!1),e}(),
+  setStatus: function(e){
+    if(Module.setStatus.last||(Module.setStatus.last={time:Date.now(),text:""}),e!==Module.setStatus.last.text) {
+      var t=e.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/),
+          n=Date.now();
+      t&&n-Module.setStatus.last.time<30||(Module.setStatus.last.time=n,
+      Module.setStatus.last.text=e,t?(e=t[1],
+      progressElement.value=100*parseInt(t[2]),
+      progressElement.max=100*parseInt(t[4]),
+      progressElement.hidden=!1,
+      spinnerElement.hidden=!1) : (
+          progressElement.value=null,
+          progressElement.max=null,
+          progressElement.hidden=!0,e||(spinnerElement.style.display="none")
+          ),statusElement.innerHTML=e)
+    }
+  },
+  totalDependencies:0,
+  monitorRunDependencies: function(e){
+  this.totalDependencies=Math.max(this.totalDependencies,e),
+  Module.setStatus(e?"Preparing... ("+(this.totalDependencies-e)+"/"+this.totalDependencies+")" : "All downloads complete.")}
+};
+
+  Module.setStatus("Downloading..."), window.onerror=function(e){
+    Module.setStatus("Exception thrown, see JavaScript console"),
+    spinnerElement.style.display="none",
+    Module.setStatus=function(e){ e && Module.printErr("[post-exception status] "+e)}
+  }
+
+
+</script>
+
+<script async src=qgis_map_renderer.js></script>
+
+<script type="text/javascript">
+
+    let f_mupp = 1;
+    let f_cx = 0;
+    let f_cy = 0;
+    let last_image_data;
+    let last_mupp, last_cx, last_cy;
+
+    let projectLoaded = false;
+    function render_canvas() {
+        if (!projectLoaded)
+            return;
+
+        Module.ccall('mr_render', null, ['number', 'number', 'number'], [f_mupp, f_cx, f_cy]);
+
+
+        let ptr = Module.ccall('mr_get_image', 'number', [], []);
+        //console.log("ptr " + ptr + " " + getValue(ptr, 'i32').toString(16) + " " + getValue(ptr+4, 'i32').toString(16));
+        let imgW = 512;
+        let imgH = 512;
+        let bufferSize = imgW*imgH*4;
+        let arr = HEAPU8.subarray(ptr, ptr+imgW*imgH*4);
+        let my_uint8_buffer = new Uint8ClampedArray(Module.HEAPU8.buffer, ptr, bufferSize);
+        last_image_data = new ImageData(my_uint8_buffer, imgW, imgH);
+        last_mupp = f_mupp;
+        last_cx = f_cx;
+        last_cy = f_cy;
+
+        let c = document.getElementById("canvas");
+        let ctx = c.getContext("2d");
+        ctx.putImageData(last_image_data, 0, 0);
+    }
+
+    function update_last_image() {
+        let c = document.getElementById("canvas");
+        let ctx = c.getContext("2d");
+        ctx.clearRect(0,0,c.width, c.height);
+        ctx.putImageData(last_image_data, (last_cx-f_cx)/f_mupp, -(last_cy-f_cy)/f_mupp);
+    }
+
+    function set_qgis_status(status) {
+        document.getElementById("qgisstatus").innerHTML = status;
+    }
+
+    function load_qgis_project(filename) {
+
+        // weird stuff - things get stuck when mr_init_qgis and mr_load_project are not called together...
+        // so we call them at once here
+
+        set_qgis_status("Loading QGIS project...");
+
+        // delayed execution so that GUI can get updated with new status message
+        // (hmm sometimes it would still hang with previous status (not the "loading" one))
+        setTimeout(function() {
+
+            console.log("init qgis");
+            console.log( Module.ccall('mr_init_qgis', // name of C function
+                            'number', // return type
+                            [], // argument types
+                            []) // argument values
+                        );
+
+            console.log("loading project " + filename);
+            console.log( Module.ccall('mr_load_project', 'number', ['string'], [filename]) );
+
+            f_mupp = Module.ccall('mr_full_extent_mupp', 'number', [], []);
+            f_cx = Module.ccall('mr_full_extent_center_x', 'number', [], []);
+            f_cy = Module.ccall('mr_full_extent_center_y', 'number', [], []);
+            console.log( "FULL EXTENT: " + f_cx + " " + f_cy + " " + f_mupp);
+            projectLoaded = true;
+
+            render_canvas();
+            set_qgis_status("")
+
+        }, 100);
+    }
+
+    function fetch_project_files(dirname) {
+
+        // read list of project files, then fetch individual files
+        // and write them to emscripten's virtual filesystem,
+        // then load the QGIS project (should be the first file in files.json)
+
+        fetch(dirname + '/files.json').then((response) => response.json().then((fileList) => {
+            //console.log(fileList);
+            let urls = [];
+            for(let filename of fileList) {
+                let url = dirname + "/" + filename;
+                urls.push(url);
+            }
+        
+            let promises = [];
+            set_qgis_status("Fetching QGIS project...");
+            urls.forEach( (url, index) => {
+            promises.push(
+                fetch(url).then((response) => response.blob().then((blob) => blob.arrayBuffer()))
+                );
+            });
+
+            Promise.all(promises).then((arrayBuffers) => {
+                //console.log("got results " + arrayBuffers);
+                FS.mkdir(dirname);
+                arrayBuffers.forEach( (arrayBuffer, index) => {
+                    //console.log(urls[index] + " --> " + arrayBuffer);
+                    let res = FS.writeFile(urls[index], new Uint8Array(arrayBuffer));
+                });
+
+                load_qgis_project(urls[0]);
+            });
+        }))
+    }
+
+    Module['onRuntimeInitialized'] = function() {
+
+        console.log("wasm loaded");
+
+        let urlParams = new URLSearchParams(window.location.search);
+        let projectName = urlParams.get('project');
+        if (projectName == null)
+            projectName = 'village';  // default project
+
+        fetch_project_files("/" + projectName);
+
+        // a hack to avoid a bunch exceptions (somehow triggered by QSettings it seems)
+        // maybe emscripten bug, not sure
+        let old_exists_file = IDBStore.existsFile;
+        IDBStore.existsFile = function(dbName,id,callback) {
+            console.log(dbName);
+            if (dbName == "/home/web_user") ///.config/QGIS/qgis4wasm.conf")
+                return true;  // todo: or false? or does it matter?
+            else
+                old_exists_file(dbName,id,callback);
+        }
+
+        //load_qgis_project('/test_project/project.qgz');
+        // TODO: loading this project causes an issue
+        //load_qgis_project('/test_project2/project.qgz');
+    }
+
+    function go_left() {
+        f_cx -= f_mupp*128;
+        render_canvas();
+    }
+    function go_right() {
+        f_cx += f_mupp*128;
+        render_canvas();
+    }
+    function go_up() {
+        f_cy += f_mupp*128;
+        render_canvas();
+    }
+    function go_down() {
+        f_cy -= f_mupp*128;
+        render_canvas();
+    }
+    function go_zoom_in() {
+        f_mupp /= 1.5;
+        render_canvas();
+    }
+    function go_zoom_out() {
+        f_mupp *= 1.5;
+        render_canvas();
+    }
+
+    document.getElementById("zoomin").onclick = go_zoom_in;
+    document.getElementById("zoomout").onclick = go_zoom_out;
+    document.getElementById("panleft").onclick = go_left;
+    document.getElementById("panright").onclick = go_right;
+    document.getElementById("panup").onclick = go_up;
+    document.getElementById("pandown").onclick = go_down;
+
+    let can = document.getElementById("canvas");
+    can.onwheel = function (event) {
+        event.preventDefault();
+        if (event.deltaY < 0)
+            go_zoom_in();
+        else
+            go_zoom_out();
+    }
+
+    document.onkeydown = function (event) {
+        if (event.code == "ArrowLeft")
+            go_left();
+        else if (event.code == "ArrowRight")
+            go_right();
+        else if (event.code == "ArrowUp")
+            go_up();
+        else if (event.code == "ArrowDown")
+            go_down();
+        //else
+        //    alert(event.code);
+    }
+
+    let baseX, baseY;
+    let mouseDown = false;
+    can.onmousedown = function (event) {
+        mouseDown = true;
+        baseX = event.clientX;
+        baseY = event.clientY;
+    }
+
+    can.onmousemove = function (event) {
+        if (!mouseDown)
+            return;
+
+        f_cx -= (event.clientX - baseX)*f_mupp;
+        f_cy += (event.clientY - baseY)*f_mupp;
+        baseX = event.clientX;
+        baseY = event.clientY;
+
+        update_last_image();
+    }
+
+    can.onmouseup = function (event) {
+        mouseDown = false;
+
+        render_canvas();
+    }
+
+</script>
+
+</body></html>
