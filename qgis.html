@@ -24,7 +24,7 @@ canvas.emscripten{border:0 none;background-color:#000}
 <body>
 
     <div align="center">
-        <div><img src="/qgis-logo.png" /></div>
+        <div><img src="qgis-logo.png" /></div>
         <div class=spinner id=spinner></div>
         <div class=emscripten id=status>Downloading...</div>
         <div class=emscripten><progress hidden id=progress max=100 value=0></progress></div>
@@ -218,7 +218,7 @@ Module={
         if (projectName == null)
             projectName = 'village';  // default project
 
-        fetch_project_files("/" + projectName);
+        fetch_project_files(projectName);
 
         // a hack to avoid a bunch exceptions (somehow triggered by QSettings it seems)
         // maybe emscripten bug, not sure
